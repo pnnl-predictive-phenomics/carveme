@@ -57,7 +57,7 @@ def tab2fasta(inputfile, outputfile, filter_by_model=None):
             f.write('>{}.{}\n{}\n'.format(row['MODEL'], row['ID'], row['SEQUENCE']))
 
 
-def load_media_db(filename, sep='\t', medium_col='medium', compound_col='compound'):
+def load_media_db(filename, sep=',', medium_col='medium', compound_col='compound'):
 
     data = pd.read_csv(filename, sep=sep)
     media_db = data[[medium_col, compound_col]].groupby(medium_col).agg(lambda x: list(x))
