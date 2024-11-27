@@ -7,7 +7,7 @@ from reframed import FBA
 
 
 def gapFill(model, universe, constraints=None, min_growth=0.1, scores=None, inplace=True, bigM=1e3, abstol=1e-9,
-            solver=None, tag=None, fast_gapfill=False):
+            solver=None, tag=None, fast_gapfill=False, debug=False):
     """ Gap Fill a metabolic model by adding reactions from a reaction universe
 
     Args:
@@ -32,7 +32,8 @@ def gapFill(model, universe, constraints=None, min_growth=0.1, scores=None, inpl
     """
 
     new_reactions = set(universe.reactions) - set(model.reactions)
-
+    if debug:
+        print(f"{len(new_reactions)} New reactions:")
     model = merge_models(model, universe, inplace, tag=tag)
 
     for r_id in new_reactions:
@@ -42,6 +43,8 @@ def gapFill(model, universe, constraints=None, min_growth=0.1, scores=None, inpl
     if not solver:
         solver = solver_instance(model)
 
+    if debug:
+        print("Solver:", solver)
     if not scores:
         scores = {}
 
@@ -49,16 +52,16 @@ def gapFill(model, universe, constraints=None, min_growth=0.1, scores=None, inpl
         solver._gapfill_flag = True
 
 
-    if fast_gapfill:
-        vartype= VarType.CONTINUOUS
-    else:
-        vartype =VarType.BINARY
-
-    for r_id in new_reactions:
-        solver.add_variable('y_' + r_id, 0, 1, vartype=vartype)
-        solver.update()
+        if fast_gapfill:
+            vartype = VarType.CONTINUOUS
+        else:
+            vartype = VarType.BINARY
 
         for r_id in new_reactions:
+            solver.add_variable('y_' + r_id, 0, 1, vartype=vartype)
+        solver.update()
+
+        for r_id in new_reactions:  
             solver.add_constraint('lb_' + r_id, {r_id: 1, 'y_'+r_id: bigM}, '>', 0)
             solver.add_constraint('ub_' + r_id, {r_id: 1, 'y_'+r_id: -bigM}, '<', 0)
 
@@ -80,7 +83,7 @@ def gapFill(model, universe, constraints=None, min_growth=0.1, scores=None, inpl
         inactive = [r_id for r_id in new_reactions if abs(solution.values[r_id]) < abstol]
 
     else:
-        raise RuntimeError('Failed to gapfill model for medium {}'.format(tag))
+        raise RuntimeError('Failed to gapfill model for medium {}. Status {}. Solver {}'.format(tag, solution.status, solver))
 
     model.remove_reactions(inactive)
     del_metabolites = disconnected_metabolites(model)
@@ -147,7 +150,7 @@ def multiGapFill(model, universe, media, media_db, min_growth=0.1, max_uptake=10
                             print("added", r_id[5:-2], "to", medium_name)
 
             gapFill(model, universe, constraints=constraints, min_growth=min_growth,
-                    scores=scores, inplace=True, bigM=bigM, tag=medium_name)#,solver=solver, )
+                    scores=scores, inplace=True, bigM=bigM, tag=medium_name, fast_gapfill=fast_gapfill)#,solver=solver, )
             
         else:
             print('Medium {} not in database, ignored.'.format(medium_name))

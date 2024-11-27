@@ -4,10 +4,22 @@ from carveme.reconstruction.utils import load_media_db
 from reframed import load_cbmodel, save_cbmodel
 import argparse
 import os
+from enum import Enum
 
+class Solver(Enum):
+    GLPK = 'glpk'
+    CPLEX = 'cplex'
+    GUROBI = 'gurobi'
+    SCIP = 'scip'
 
+def solver_type(solver_str):
+    try:
+        return Solver[solver_str.upper()]
+    except KeyError:
+        raise argparse.ArgumentTypeError(f"Invalid solver type: {solver_str}")
+    
 def maincall(inputfile, media, mediadb=None, universe=None, universe_file=None, outputfile=None, flavor=None,
-         spent=None, verbose=False, fast_gapfill=False):
+         spent=None, verbose=False, fast_gapfill=False, solver='scip'):
 
     if verbose:
         print('Loading model...')
@@ -62,7 +74,7 @@ def maincall(inputfile, media, mediadb=None, universe=None, universe_file=None, 
 
     max_uptake = config.getint('gapfill', 'max_uptake')
     multiGapFill(model, universe_model, media, media_db, max_uptake=max_uptake, inplace=True,
-                 spent_model=spent_model, fast_gapfill=fast_gapfill)
+                 spent_model=spent_model, fast_gapfill=fast_gapfill, solver=solver)
 
     if verbose:
         m2, n2 = len(model.metabolites), len(model.reactions)
@@ -101,6 +113,7 @@ def main():
     parser.add_argument('-o', '--output', dest='output', type=str, help="SBML output file")
 
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help="Switch to verbose mode")
+    parser.add_argument('-s', '--solver', type=solver_type, default='scip', help="Choose a Solver: (gurobi, scip, glpk, cplex)  (default: scip)")
 
     sbml = parser.add_mutually_exclusive_group()
     sbml.add_argument('--cobra', action='store_true', help="Input SBML in old cobra format")
@@ -126,7 +139,8 @@ def main():
          flavor=flavor,
          spent=args.spent,
          verbose=args.verbose,
-         fast_gapfill=args.fast_gapfill)
+         fast_gapfill=args.fast_gapfill,
+         solver=args.solver)
 
 if __name__ == '__main__':
     main()
